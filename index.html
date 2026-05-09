@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Magnets Studio — 3D Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+:root{
+  --bg:#f5f3ee;--bg2:#ede9e2;--bg3:#e2ddd6;
+  --line:#1a1a1a;--line2:#888;--line3:#ccc9c0;
+  --text:#1a1a1a;--text2:#666;--text3:#aaa;
+}
+.dark{
+  --bg:#0e0d0b;--bg2:#131210;--bg3:#1c1a16;
+  --line:#d4d0c8;--line2:#555;--line3:#2a2820;
+  --text:#d4d0c8;--text2:#777;--text3:#3a3830;
+}
+
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;transition:background .25s,color .25s}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:44px;flex-shrink:0;
+  border-bottom:1px solid var(--line3);background:var(--bg);
+  position:relative;z-index:10;transition:background .25s,border-color .25s;
+}
+.logo{
+  display:flex;align-items:center;gap:8px;
+  font-family:'DM Sans',sans-serif;font-weight:500;
+  font-size:12px;letter-spacing:3px;text-transform:uppercase;
+  color:var(--text);transition:color .25s;user-select:none;
+}
+.pole{
+  width:20px;height:20px;border-radius:50%;
+  border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:300;color:var(--text);flex-shrink:0;
+  transition:border-color .25s,color .25s;
+}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.mono{
+  font-family:'Share Tech Mono',monospace;font-size:9px;
+  letter-spacing:1.5px;color:var(--text2);text-transform:uppercase;
+  transition:color .25s;user-select:none;
+}
+.theme-btn{
+  width:30px;height:16px;border:1px solid var(--line3);background:transparent;
+  cursor:pointer;position:relative;transition:border-color .25s;flex-shrink:0;
+}
+.theme-btn::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:10px;height:10px;background:var(--text);
+  transition:left .2s,background .25s;
+}
+.dark .theme-btn::after{left:16px}
+
+/* ── MAIN ── */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ── CANVAS AREA ── */
+#cw{
+  position:relative;flex:1;overflow:hidden;
+  background:var(--bg);transition:background .25s;
+  cursor:grab;
+}
+#cw.panning{cursor:move}
+#cw:active{cursor:grabbing}
+canvas#c{display:block;width:100%!important;height:100%!important}
+canvas#fg{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;transition:opacity .3s;
+}
+
+/* corner brackets */
+.brk{position:absolute;width:12px;height:12px;pointer-events:none}
+.brk.tl{top:12px;left:12px;border-top:1px solid var(--line2);border-left:1px solid var(--line2)}
+.brk.tr{top:12px;right:12px;border-top:1px solid var(--line2);border-right:1px solid var(--line2)}
+.brk.bl{bottom:12px;left:12px;border-bottom:1px solid var(--line2);border-left:1px solid var(--line2)}
+.brk.br{bottom:12px;right:12px;border-bottom:1px solid var(--line2);border-right:1px solid var(--line2)}
+
+/* crosshair */
+.xhair{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  pointer-events:none;width:16px;height:16px;opacity:.2;
+}
+.xhair::before,.xhair::after{content:'';position:absolute;background:var(--line);transition:background .25s}
+.xhair::before{width:1px;height:16px;left:50%;transform:translateX(-50%)}
+.xhair::after{width:16px;height:1px;top:50%;transform:translateY(-50%)}
+
+/* HUD */
+.hud{
+  position:absolute;top:14px;left:14px;
+  font-family:'Share Tech Mono',monospace;font-size:8px;line-height:2;
+  letter-spacing:1.2px;color:var(--text2);text-transform:uppercase;
+  pointer-events:none;transition:color .25s;
+}
+.hud2{
+  position:absolute;bottom:14px;left:14px;
+  font-family:'Share Tech Mono',monospace;font-size:8px;line-height:2;
+  letter-spacing:1.2px;color:var(--text3);text-transform:uppercase;
+  pointer-events:none;transition:color .25s;
+}
+.hint{
+  position:absolute;bottom:14px;right:14px;
+  font-family:'Share Tech Mono',monospace;font-size:7.5px;
+  letter-spacing:1.2px;color:var(--text3);text-transform:uppercase;
+  pointer-events:none;transition:color .25s;text-align:right;line-height:2;
+}
+
+/* loading overlay */
+#loading{
+  position:absolute;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  z-index:30;transition:opacity .4s;
+}
+#loading.hidden{opacity:0;pointer-events:none}
+.ld-logo{
+  font-family:'DM Sans',sans-serif;font-weight:500;font-size:13px;
+  letter-spacing:3px;text-transform:uppercase;color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.ld-bar-wrap{
+  width:120px;height:1px;background:var(--line3);position:relative;overflow:hidden;
+}
+.ld-bar{
+  height:1px;background:var(--line);width:0%;transition:width .3s;
+}
+.ld-status{
+  font-family:'Share Tech Mono',monospace;font-size:8px;
+  letter-spacing:2px;color:var(--text2);text-transform:uppercase;
+}
+
+/* drop veil */
+#dropveil{
+  position:absolute;inset:0;background:var(--bg);opacity:0;pointer-events:none;
+  transition:opacity .15s;display:flex;align-items:center;justify-content:center;
+  font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;
+  color:var(--text2);text-transform:uppercase;z-index:20;
+  border:1px dashed var(--line2);
+}
+#dropveil.show{opacity:.97;pointer-events:all}
+
+/* ── SIDEBAR ── */
+#sb{
+  width:196px;background:var(--bg2);border-left:1px solid var(--line3);
+  display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;
+  transition:background .25s,border-color .25s;
+}
+@media(max-width:560px){
+  #sb{
+    position:absolute;bottom:0;left:0;right:0;width:100%;
+    height:auto;border-left:none;border-top:1px solid var(--line3);
+    flex-direction:row;overflow-x:auto;overflow-y:hidden;z-index:9;
+  }
+  #sb .panel{width:190px;flex-shrink:0;border-bottom:none;border-right:1px solid var(--line3)}
+  #sb .fp,#sb .sec{display:none}
+}
+.sec{
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:2px;
+  color:var(--text3);text-transform:uppercase;padding:5px 12px;
+  border-bottom:1px solid var(--line3);transition:color .25s,border-color .25s;
+}
+.panel{border-bottom:1px solid var(--line3);transition:border-color .25s}
+.ph{
+  padding:8px 12px;font-family:'Share Tech Mono',monospace;font-size:8px;
+  letter-spacing:2px;color:var(--text2);text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;
+  cursor:pointer;user-select:none;transition:color .25s;
+}
+.ph:hover{color:var(--text)}
+.ph .chv{font-size:7px;transition:transform .2s}
+.ph.open .chv{transform:rotate(180deg)}
+.pb{padding:8px 12px 12px}
+
+.cr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cr:last-child{margin-bottom:0}
+.cl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;color:var(--text2);text-transform:uppercase}
+.cv{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--text);min-width:28px;text-align:right}
+
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:66px;height:1px;background:var(--line3);outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:8px;height:8px;
+  background:var(--text);border-radius:0;cursor:pointer;
+}
+
+.tr2{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tr2:last-child{margin-bottom:0}
+.tl2{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;color:var(--text2);text-transform:uppercase}
+.tog{
+  width:24px;height:12px;background:transparent;cursor:pointer;
+  position:relative;border:1px solid var(--line2);transition:border-color .25s;flex-shrink:0;
+}
+.tog.on{border-color:var(--line)}
+.tog::after{
+  content:'';position:absolute;top:1px;left:1px;
+  width:8px;height:8px;background:var(--text3);transition:left .15s,background .15s;
+}
+.tog.on::after{left:13px;background:var(--text)}
+
+.lbtn{
+  width:100%;padding:6px;margin-top:6px;background:transparent;
+  border:1px solid var(--line2);color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:7.5px;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.lbtn:hover{background:var(--bg3)}
+
+/* footer */
+.fp{
+  margin-top:auto;padding:10px 12px;
+  border-top:1px solid var(--line3);transition:border-color .25s;
+}
+.fp-logo{
+  font-family:'DM Sans',sans-serif;font-weight:500;font-size:11px;
+  letter-spacing:2.5px;text-transform:uppercase;color:var(--text);
+  display:flex;align-items:center;gap:5px;margin-bottom:5px;
+}
+.fp-logo .dot{
+  width:5px;height:5px;border-radius:50%;
+  border:1px solid var(--text);transition:border-color .25s;
+}
+.fp-sub{
+  font-family:'Share Tech Mono',monospace;font-size:7px;
+  letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;line-height:2;
+}
+</style>
+</head>
+<body class="dark">
+<div id="app">
+
+  <header>
+    <div class="logo"><div class="pole">+</div>MAGNETS STUDIO</div>
+    <div class="hdr-r">
+      <span class="mono" id="hdr-geo">LOADING…</span>
+      <button class="theme-btn" id="theme-btn" aria-label="Toggle theme"></button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div id="cw">
+      <canvas id="c"></canvas>
+      <canvas id="fg"></canvas>
+
+      <div class="brk tl"></div><div class="brk tr"></div>
+      <div class="brk bl"></div><div class="brk br"></div>
+      <div class="xhair"></div>
+
+      <div class="hud">
+        <div>AZI &nbsp;<span id="h-az">000°</span></div>
+        <div>POL &nbsp;<span id="h-po">036°</span></div>
+        <div>DST &nbsp;<span id="h-d">5.00</span></div>
+        <div>PAN &nbsp;<span id="h-pan">0.0 / 0.0</span></div>
+      </div>
+      <div class="hud2">
+        <div>FPS &nbsp;<span id="h-fps">—</span></div>
+      </div>
+      <div class="hint">
+        L-DRAG — ORBIT<br>
+        R-DRAG — PAN<br>
+        SCROLL — ZOOM<br>
+        PINCH &nbsp;— ZOOM
+      </div>
+
+      <!-- loading overlay -->
+      <div id="loading">
+        <div class="ld-logo"><div class="pole">+</div>MAGNETS STUDIO</div>
+        <div class="ld-bar-wrap"><div class="ld-bar" id="ld-bar"></div></div>
+        <div class="ld-status" id="ld-status">INITIALISING</div>
+      </div>
+
+      <div id="dropveil">DROP GLB HERE</div>
+    </div>
+
+    <div id="sb">
+
+      <div class="sec">001.1 — model</div>
+      <div class="panel">
+        <div class="ph open" data-p="mdl">FILE <span class="chv">▲</span></div>
+        <div class="pb" id="panel-mdl">
+          <button class="lbtn" id="lbtn">↑ &nbsp;LOAD GLB / GLTF</button>
+          <input type="file" id="fi" accept=".glb,.gltf" style="display:none">
+        </div>
+      </div>
+
+      <div class="sec">002.1 — surface</div>
+      <div class="panel">
+        <div class="ph open" data-p="mat">MATERIAL <span class="chv">▲</span></div>
+        <div class="pb" id="panel-mat">
+          <div class="cr">
+            <span class="cl">ROUGH</span>
+            <input type="range" id="rough" min="0" max="100" value="35" step="1">
+            <span class="cv" id="r-v">0.35</span>
+          </div>
+          <div class="cr">
+            <span class="cl">METAL</span>
+            <input type="range" id="metal" min="0" max="100" value="55" step="1">
+            <span class="cv" id="m-v">0.55</span>
+          </div>
+          <div class="tr2" style="margin-top:8px">
+            <span class="tl2">WIREFRAME</span>
+            <div class="tog" id="t-wire"></div>
+          </div>
+          <div class="tr2">
+            <span class="tl2">FLAT SHADE</span>
+            <div class="tog" id="t-flat"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">003.1 — environment</div>
+      <div class="panel">
+        <div class="ph open" data-p="env">LIGHTING <span class="chv">▲</span></div>
+        <div class="pb" id="panel-env">
+          <div class="cr">
+            <span class="cl">AMB</span>
+            <input type="range" id="amb" min="0" max="100" value="20" step="1">
+            <span class="cv" id="a-v">0.20</span>
+          </div>
+          <div class="cr">
+            <span class="cl">KEY</span>
+            <input type="range" id="key" min="0" max="200" value="130" step="1">
+            <span class="cv" id="k-v">1.30</span>
+          </div>
+          <div class="cr">
+            <span class="cl">RIM</span>
+            <input type="range" id="rim" min="0" max="100" value="40" step="1">
+            <span class="cv" id="ri-v">0.40</span>
+          </div>
+          <div class="tr2" style="margin-top:8px">
+            <span class="tl2">AUTO ROT</span>
+            <div class="tog" id="t-rot"></div>
+          </div>
+          <div class="tr2">
+            <span class="tl2">GRID</span>
+            <div class="tog on" id="t-grid"></div>
+          </div>
+          <div class="tr2">
+            <span class="tl2">FIELD BG</span>
+            <div class="tog on" id="t-field"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fp">
+        <div class="fp-logo"><div class="dot"></div>MAGNETS STUDIO</div>
+        <div class="fp-sub">3D VIEWER · V0.3<br>LJUBLJANA 2026</div>
+      </div>
+
+    </div><!-- /sidebar -->
+  </div>
+</div>
+
+<!-- Three.js r128 + loaders -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════
+   THEME
+═══════════════════════════════════════════════ */
+let dark = true;
+document.getElementById('theme-btn').addEventListener('click', () => {
+  dark = !dark;
+  document.body.classList.toggle('dark', dark);
+  applyTheme();
+  drawField();
+});
+
+function applyTheme() {
+  const bgCol   = dark ? 0x0e0d0b : 0xf5f3ee;
+  const grid1   = dark ? 0x2a2820 : 0xc5c2ba;
+  const grid2   = dark ? 0x1c1a16 : 0xdad7cf;
+  renderer.setClearColor(bgCol, 1);
+  scene.fog.color.set(bgCol);
+  gridH.material[0].color.set(grid1);
+  gridH.material[1].color.set(grid2);
+  mat.color.set(dark ? 0xd4d0c8 : 0x1a1a1a);
+  matW.color.set(dark ? 0xd4d0c8 : 0x1a1a1a);
+}
+
+/* ═══════════════════════════════════════════════
+   FIELD BACKGROUND CANVAS
+═══════════════════════════════════════════════ */
+const fg    = document.getElementById('fg');
+const fgCtx = fg.getContext('2d');
+let fieldVis = true;
+
+function resizeFg() {
+  fg.width  = fg.offsetWidth  * devicePixelRatio;
+  fg.height = fg.offsetHeight * devicePixelRatio;
+  drawField();
+}
+
+function drawField() {
+  const W = fg.width, H = fg.height;
+  fgCtx.clearRect(0, 0, W, H);
+  if (!fieldVis) return;
+
+  const COLS = 13, ROWS = 9;
+  const px = W * 0.28, py = H * 0.5;
+  const dpr = devicePixelRatio;
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = (c / (COLS - 1)) * W;
+      const y = (r / (ROWS - 1)) * H;
+      const dx = x - px, dy = y - py;
+      const d  = Math.sqrt(dx * dx + dy * dy) || 1;
+      const fade = Math.max(0.04, Math.min(0.45, 55 * dpr / d));
+      const col  = dark ? `rgba(212,208,200,${fade})` : `rgba(26,26,26,${fade})`;
+      const angle = Math.atan2(dy, dx);
+      const L  = 11 * dpr;
+      const ax = x - Math.cos(angle) * L / 2, ay = y - Math.sin(angle) * L / 2;
+      const bx = x + Math.cos(angle) * L / 2, by = y + Math.sin(angle) * L / 2;
+
+      fgCtx.strokeStyle = col;
+      fgCtx.fillStyle   = col;
+      fgCtx.lineWidth   = dpr;
+      fgCtx.beginPath(); fgCtx.moveTo(ax, ay); fgCtx.lineTo(bx, by); fgCtx.stroke();
+
+      const hw = 3 * dpr;
+      fgCtx.beginPath();
+      fgCtx.moveTo(bx, by);
+      fgCtx.lineTo(bx - Math.cos(angle - 0.42) * hw, by - Math.sin(angle - 0.42) * hw);
+      fgCtx.lineTo(bx - Math.cos(angle + 0.42) * hw, by - Math.sin(angle + 0.42) * hw);
+      fgCtx.closePath(); fgCtx.fill();
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   RENDERER + SCENE
+═══════════════════════════════════════════════ */
+const canvas   = document.getElementById('c');
+const wrap     = document.getElementById('cw');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled  = true;
+renderer.shadowMap.type     = THREE.PCFSoftShadowMap;
+renderer.outputEncoding     = THREE.sRGBEncoding;
+renderer.toneMapping        = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.setClearColor(0x0e0d0b, 1);
+
+const scene = new THREE.Scene();
+scene.fog   = new THREE.Fog(0x0e0d0b, 20, 80);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 1000);
+
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  resizeFg();
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* ─ lights ─ */
+const ambL  = new THREE.AmbientLight(0xfaf8f2, 0.2);  scene.add(ambL);
+const keyL  = new THREE.DirectionalLight(0xfff8f0, 1.3);
+keyL.position.set(4, 7, 3); keyL.castShadow = true;
+keyL.shadow.mapSize.set(2048, 2048);
+keyL.shadow.camera.near = 0.1; keyL.shadow.camera.far = 200;
+scene.add(keyL);
+const fillL = new THREE.DirectionalLight(0xd0d8ff, 0.25);
+fillL.position.set(-4, 2, -3); scene.add(fillL);
+const rimL  = new THREE.DirectionalLight(0xffffff, 0.4);
+rimL.position.set(0, -2, -5); scene.add(rimL);
+
+/* ─ grid ─ */
+const gridH = new THREE.GridHelper(200, 100, 0x2a2820, 0x1c1a16);
+gridH.position.y = 0; scene.add(gridH);
+
+/* ─ materials ─ */
+const mat  = new THREE.MeshStandardMaterial({ color: 0xd4d0c8, roughness: 0.35, metalness: 0.55 });
+const matW = new THREE.MeshBasicMaterial({ color: 0xd4d0c8, wireframe: true });
+let wire = false;
+
+/* ═══════════════════════════════════════════════
+   ORBIT + PAN STATE
+   target = look-at pivot point (panned)
+   az, pol, dist = spherical orbit around target
+═══════════════════════════════════════════════ */
+const target = new THREE.Vector3(0, 0, 0);
+let az = 0, pol = Math.PI / 5, dist = 10;
+let autoRot = false;
+
+/* smooth interpolation state */
+let azTarget   = az;
+let polTarget  = pol;
+let distTarget = dist;
+const targetSmooth = new THREE.Vector3();
+
+/* ─ input tracking ─ */
+let leftDown = false, rightDown = false, middleDown = false;
+let lx = 0, ly = 0;
+let pinchDist = null;
+
+/* ─ pan speed scales with distance ─ */
+function panFactor() { return distTarget * 0.0012; }
+
+/* right-click + middle-click → pan */
+wrap.addEventListener('contextmenu', e => e.preventDefault());
+
+wrap.addEventListener('mousedown', e => {
+  lx = e.clientX; ly = e.clientY;
+  if (e.button === 0) { leftDown  = true; autoRot = false; document.getElementById('t-rot').classList.remove('on'); }
+  if (e.button === 1) { middleDown = true; e.preventDefault(); }
+  if (e.button === 2) { rightDown = true; }
+});
+window.addEventListener('mouseup', e => {
+  if (e.button === 0) leftDown   = false;
+  if (e.button === 1) middleDown = false;
+  if (e.button === 2) rightDown  = false;
+});
+window.addEventListener('mousemove', e => {
+  const dx = e.clientX - lx, dy = e.clientY - ly;
+  lx = e.clientX; ly = e.clientY;
+
+  if (leftDown && !rightDown && !middleDown) {
+    // orbit
+    azTarget  -= dx * 0.005;
+    polTarget  = Math.max(0.05, Math.min(Math.PI * 0.92, polTarget + dy * 0.005));
+  }
+  if (rightDown || middleDown) {
+    // pan in camera-right / camera-up plane
+    const right = new THREE.Vector3();
+    const up    = new THREE.Vector3();
+    camera.getWorldDirection(new THREE.Vector3()); // update matrix
+    right.setFromMatrixColumn(camera.matrix, 0);
+    up.setFromMatrixColumn(camera.matrix, 1);
+    const pf = panFactor();
+    targetSmooth.addScaledVector(right, -dx * pf);
+    targetSmooth.addScaledVector(up,     dy * pf);
+  }
+});
+
+/* scroll zoom — linear steps, no snap */
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  // use additive delta so zoom feels proportional at any distance
+  const step = distTarget * 0.08;
+  distTarget = Math.max(0.1, Math.min(200, distTarget + (e.deltaY > 0 ? step : -step)));
+}, { passive: false });
+
+/* touch */
+wrap.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    leftDown = true; lx = e.touches[0].clientX; ly = e.touches[0].clientY;
+    autoRot = false; document.getElementById('t-rot').classList.remove('on');
+  }
+  if (e.touches.length === 2) {
+    leftDown = false;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    pinchDist = Math.sqrt(dx * dx + dy * dy);
+  }
+}, { passive: true });
+wrap.addEventListener('touchend', e => {
+  if (e.touches.length < 2) pinchDist = null;
+  if (e.touches.length === 0) leftDown = false;
+}, { passive: true });
+wrap.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && leftDown) {
+    const dx = e.touches[0].clientX - lx, dy = e.touches[0].clientY - ly;
+    azTarget  -= dx * 0.005;
+    polTarget  = Math.max(0.05, Math.min(Math.PI * 0.92, polTarget + dy * 0.005));
+    lx = e.touches[0].clientX; ly = e.touches[0].clientY;
+  }
+  if (e.touches.length === 2 && pinchDist !== null) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const d  = Math.sqrt(dx * dx + dy * dy);
+    const step = distTarget * 0.015;
+    distTarget = Math.max(0.1, Math.min(200, distTarget - (d - pinchDist) * step));
+    pinchDist = d;
+  }
+}, { passive: true });
+
+/* ═══════════════════════════════════════════════
+   MODEL LOADING
+═══════════════════════════════════════════════ */
+let loadedModel = null;
+
+function setLoadStatus(msg, pct) {
+  document.getElementById('ld-status').textContent = msg;
+  document.getElementById('ld-bar').style.width    = pct + '%';
+}
+
+function fitCamera(object) {
+  const box  = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+  const ctr  = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+
+  // place grid at model bottom
+  gridH.position.y = box.min.y;
+
+  // set camera to frame the whole model
+  dist       = maxDim * 1.8;
+  distTarget = dist;
+  az         = 0.4; azTarget  = az;
+  pol        = Math.PI / 4; polTarget = pol;
+
+  target.copy(ctr);
+  targetSmooth.copy(ctr);
+}
+
+function applyCurrentSliders(model) {
+  const roughVal = document.getElementById('rough').value / 100;
+  const metalVal = document.getElementById('metal').value / 100;
+  model.traverse(child => {
+    if (!child.isMesh || !child.material) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach(m => {
+      if (m.roughness !== undefined) m.roughness = roughVal;
+      if (m.metalness !== undefined) m.metalness = metalVal;
+      m.needsUpdate = true;
+    });
+  });
+}
+
+function loadURL(url, label) {
+  setLoadStatus('LOADING', 10);
+  document.getElementById('loading').classList.remove('hidden');
+
+  const loader = new THREE.GLTFLoader();
+  loader.load(url, gltf => {
+    setLoadStatus('PROCESSING', 80);
+    if (loadedModel) scene.remove(loadedModel);
+    loadedModel = gltf.scene;
+
+    loadedModel.traverse(child => {
+      if (child.isMesh) {
+        child.castShadow    = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    scene.add(loadedModel);
+    fitCamera(loadedModel);
+    applyCurrentSliders(loadedModel);
+
+    document.getElementById('hdr-geo').textContent = label;
+    setLoadStatus('READY', 100);
+    setTimeout(() => document.getElementById('loading').classList.add('hidden'), 400);
+    URL.revokeObjectURL(url);
+  },
+  xhr => {
+    if (xhr.total) {
+      const pct = Math.round((xhr.loaded / xhr.total) * 70) + 10;
+      setLoadStatus('LOADING ' + Math.round(pct) + '%', pct);
+    }
+  },
+  err => {
+    console.error(err);
+    setLoadStatus('ERROR — check console', 0);
+    URL.revokeObjectURL(url);
+  });
+}
+
+/* auto-load Mercedes_House.glb from same directory */
+setLoadStatus('INITIALISING', 5);
+loadURL('Mercedes_House.glb', 'MERCEDES HOUSE');
+
+/* drag & drop */
+const dropVeil = document.getElementById('dropveil');
+wrap.addEventListener('dragover',  e => { e.preventDefault(); dropVeil.classList.add('show'); });
+wrap.addEventListener('dragleave', ()  => dropVeil.classList.remove('show'));
+wrap.addEventListener('drop', e => {
+  e.preventDefault(); dropVeil.classList.remove('show');
+  const f = e.dataTransfer.files[0];
+  if (f) loadURL(URL.createObjectURL(f), f.name.replace(/\.[^.]+$/, '').toUpperCase().slice(0, 12));
+});
+
+/* file button */
+document.getElementById('lbtn').addEventListener('click', () => document.getElementById('fi').click());
+document.getElementById('fi').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) loadURL(URL.createObjectURL(f), f.name.replace(/\.[^.]+$/, '').toUpperCase().slice(0, 12));
+  e.target.value = '';
+});
+
+/* ═══════════════════════════════════════════════
+   TRAVERSE HELPERS
+═══════════════════════════════════════════════ */
+function traverseGLB(fn) {
+  if (!loadedModel) return;
+  loadedModel.traverse(child => {
+    if (!child.isMesh) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach(m => fn(child, m));
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   PANEL COLLAPSIBLES
+═══════════════════════════════════════════════ */
+document.querySelectorAll('.ph').forEach(h => {
+  h.addEventListener('click', () => {
+    const b = document.getElementById('panel-' + h.dataset.p);
+    if (b.style.display === 'none') { b.style.display = ''; h.classList.add('open'); }
+    else { b.style.display = 'none'; h.classList.remove('open'); }
+  });
+});
+
+/* ═══════════════════════════════════════════════
+   TOGGLES
+═══════════════════════════════════════════════ */
+function makeTog(id, onFn, offFn) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => {
+    el.classList.toggle('on');
+    el.classList.contains('on') ? onFn() : offFn();
+  });
+}
+
+makeTog('t-wire',
+  () => {
+    wire = true;
+    traverseGLB((child, m) => {
+      if (!child._origMat) child._origMat = child.material;
+      const w = new THREE.MeshBasicMaterial({ color: m.color || 0xd4d0c8, wireframe: true });
+      child.material = w;
+    });
+  },
+  () => {
+    wire = false;
+    traverseGLB((child) => {
+      if (child._origMat) { child.material = child._origMat; delete child._origMat; }
+    });
+  }
+);
+makeTog('t-flat',
+  () => traverseGLB((_, m) => { m.flatShading = true;  m.needsUpdate = true; }),
+  () => traverseGLB((_, m) => { m.flatShading = false; m.needsUpdate = true; })
+);
+makeTog('t-rot',
+  () => { autoRot = true; },
+  () => { autoRot = false; }
+);
+makeTog('t-grid',
+  () => { gridH.visible = true; },
+  () => { gridH.visible = false; }
+);
+makeTog('t-field',
+  () => { fieldVis = true;  drawField(); },
+  () => { fieldVis = false; drawField(); }
+);
+
+/* ═══════════════════════════════════════════════
+   SLIDERS
+═══════════════════════════════════════════════ */
+function bindR(id, vid, scale, fn) {
+  const el = document.getElementById(id), vl = document.getElementById(vid);
+  el.addEventListener('input', () => {
+    const v = el.value / 100;
+    vl.textContent = (v * scale).toFixed(2);
+    fn(v * scale);
+  });
+}
+bindR('rough', 'r-v', 1, v => {
+  mat.roughness = v;
+  traverseGLB((_, m) => { if (m.roughness !== undefined) { m.roughness = v; m.needsUpdate = true; } });
+});
+bindR('metal', 'm-v', 1, v => {
+  mat.metalness = v;
+  traverseGLB((_, m) => { if (m.metalness !== undefined) { m.metalness = v; m.needsUpdate = true; } });
+});
+bindR('amb',  'a-v', 1, v => ambL.intensity  = v);
+bindR('key',  'k-v', 2, v => keyL.intensity  = v);
+bindR('rim',  'ri-v',1, v => rimL.intensity  = v);
+
+/* ═══════════════════════════════════════════════
+   RENDER LOOP
+═══════════════════════════════════════════════ */
+const EPS    = 0.0001;
+const SMOOTH = 0.10; // lerp factor per frame (~60fps)
+let tick = 0, frames = 0, fpsStamp = performance.now();
+
+function animate() {
+  requestAnimationFrame(animate);
+  tick += 0.005;
+
+  if (autoRot) azTarget += 0.004;
+
+  /* smooth orbit values */
+  az   += (azTarget   - az)   * SMOOTH;
+  pol  += (polTarget  - pol)  * SMOOTH;
+  dist += (distTarget - dist) * SMOOTH;
+  target.lerp(targetSmooth, SMOOTH);
+
+  /* spherical → cartesian */
+  const sinPol = Math.sin(pol);
+  camera.position.set(
+    target.x + Math.sin(az) * sinPol * dist,
+    target.y + Math.cos(pol) * dist,
+    target.z + Math.cos(az) * sinPol * dist
+  );
+  camera.lookAt(target);
+
+  /* rim orbits */
+  rimL.position.set(Math.sin(tick * 0.5) * 8, 2, Math.cos(tick * 0.5) * 8);
+
+  /* HUD */
+  const azDeg  = (((Math.round(az * 180 / Math.PI)) % 360) + 360) % 360;
+  const polDeg = Math.round(pol * 180 / Math.PI);
+  document.getElementById('h-az').textContent  = String(azDeg).padStart(3, '0') + '°';
+  document.getElementById('h-po').textContent  = String(polDeg).padStart(3, '0') + '°';
+  document.getElementById('h-d').textContent   = dist.toFixed(1);
+  document.getElementById('h-pan').textContent =
+    target.x.toFixed(1) + ' / ' + target.z.toFixed(1);
+
+  /* FPS */
+  frames++;
+  const now = performance.now();
+  if (now - fpsStamp > 600) {
+    document.getElementById('h-fps').textContent = Math.round(frames / ((now - fpsStamp) / 1000));
+    frames = 0; fpsStamp = now;
+  }
+
+  renderer.render(scene, camera);
+}
+
+animate();
+applyTheme();
+</script>
+</body>
+</html>
