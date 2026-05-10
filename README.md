@@ -1,5 +1,8 @@
 # Magnets Studio — 3D Viewer
 
+#Special instructions for Bonino
+
+Download html - Green button in the right corner above (CODE), download ZIP
 Static single-page 3D viewer. Deploy to GitHub Pages.
 
 ## Deploy
